@@ -48,7 +48,7 @@ var Engine = {
 function loadMesh(objName, func)
 {    
     var objLoader = new THREE.OBJLoader();
-    objLoader.load('/geo/' + objName, function(obj) {
+    objLoader.load('/geo/' + objName + '.obj', function(obj) {
         obj.traverse( function ( child ) {
           if ( child instanceof THREE.Mesh ) {
             func(child);
@@ -73,7 +73,7 @@ function loadBackground()
     cinematicBarsMaterial.side = THREE.DoubleSide;
     cinematicBarsMaterial.order
 
-    loadMesh('cinematic_bars.obj', function(mesh) {
+    loadMesh('cinematic_bars', function(mesh) {
         mesh.material = cinematicBarsMaterial;
         mesh.renderOrder = 10; // This is the last thing rendered
         Engine.scene.add(mesh);
@@ -87,7 +87,7 @@ function loadBackground()
         fragmentShader: require("./shaders/floor.frag.glsl")
     });
 
-    loadMesh('floor.obj', function(mesh) {
+    loadMesh('floor', function(mesh) {
         mesh.material = floorMaterial;
         Engine.scene.add(mesh);
     });
@@ -100,21 +100,64 @@ function loadBackground()
     return cinematicElement;
 }
 
+// A good curve seems to be: (log(x * .5) + 2) * .2  + .5 + x*x*x*x * .25
+// The derivative is close to (1/x)*.1 + .25 * 4 * x * x * x
+function wingPositionFunction(x)
+{
+    return (Math.log(x * .5) + 2) * .2  + .5 + x * x * x * x * .25;
+}
+
+function lerp(a, b, x)
+{
+    return a * (1 - x) + b * x;
+}
+
 function loadWings()
 {
-    var wingMaterial = new THREE.MeshLambertMaterial({ color: 0xaaaaaa, side: THREE.DoubleSide });
-
+    var featherMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          time: { type: "f", value : 0.0 },
+        },
+        vertexShader: require("./shaders/feather.vert.glsl"),
+        fragmentShader: require("./shaders/feather.frag.glsl")
+    });
     var cinematicElements = [];
 
-    var objLoader = new THREE.OBJLoader();
-    objLoader.load('/geo/feather.obj', function(obj) {
-        var featherGeo = obj.children[0].geometry;
-        var featherMesh = new THREE.Mesh(featherGeo, wingMaterial);
-        Engine.scene.add(featherMesh);
+    var featherAmount = 50;
 
-        cinematicElements.push({            
-        });
+    loadMesh('feather', function(mesh) {
+        mesh.material = featherMaterial;
+
+        var feathers = []
+
+        feathers.push(mesh);
+        for(var i = 0; i < featherAmount; i++)
+            feathers.push(mesh.clone());
+
+        for(var i = 0; i < feathers.length; i++)
+        {
+            var x = i / feathers.length;
+            var f = feathers[i];
+            f.userData = { index : i };
+            f.position.set(x, 0, wingPositionFunction(x));
+            f.scale.set(.2 + wingPositionFunction(x) * .1 + Math.sin(x*3.14 - 1.5) * .05,.2,.2);
+            // f.rotation.set(0, 3.14, 0);
+            f.rotation.set(0, lerp(3.34, 5.0, x*x), 0);
+            
+            Engine.scene.add(f);
+        }
     });
+
+
+
+    // loadMesh('angel', function(mesh) {
+    //     mesh.material = wingMaterial;
+    //     Engine.scene.add(mesh);
+
+    //     cinematicElements.push({
+
+    //     });
+    // });
 
     var cinematicElement = {
         time : 0.0,
@@ -159,7 +202,7 @@ function onLoad(framework)
     camera.lookAt(new THREE.Vector3(0,0,0));
 
     LoadCinematicElement(loadBackground);
-    // LoadCinematicElement(loadWings);
+    LoadCinematicElement(loadWings);
 
     // edit params and listen to changes like this
     // more information here: https://workshop.chromeexperiments.com/examples/gui/#1--Basic-Usage
