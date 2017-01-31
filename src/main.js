@@ -427,12 +427,13 @@ function loadWings()
     var noiseTexture = THREE.ImageUtils.loadTexture("./images/noise.png");
     noiseTexture.wrapS = THREE.RepeatWrapping;
     noiseTexture.wrapT = THREE.RepeatWrapping;
-    
+
     var featherMaterial = new THREE.ShaderMaterial({
         uniforms: {
           time: { type: "f", value : 0.0 },
           gradient: { type: "t", value: THREE.ImageUtils.loadTexture("./images/gradient_wings.png")},
-          noise: { type: "t", value: noiseTexture}
+          noise: { type: "t", value: noiseTexture},
+          lightLit: { type: "t", value: THREE.ImageUtils.loadTexture("./images/halo.png")},
         },
         vertexShader: require("./shaders/feather.vert.glsl"),
         fragmentShader: require("./shaders/feather.frag.glsl")

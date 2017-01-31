@@ -7,14 +7,22 @@ uniform float time;
 uniform sampler2D gradient;
 uniform sampler2D noise;
 
+uniform sampler2D lightLit;
+
 void main() 
 {
-	vec2 noiseUV = worldPos.yz + vec2(time, time * .5) * .05;
+
+	vec2 noiseUV = vec2(worldPos.y, worldPos.z) + vec2(time, time * .5) * .05;
 	vec2 n = texture2D(noise,noiseUV * .5).rg * 2.0 +  texture2D(noise, noiseUV * 2.0).rg * .5;
 
-	float darkDomain = n.x + n.y + worldPos.y - worldPos.z + sin(time + (worldPos.y + worldPos.z) * .25); 
-	float dark = 1.0 - smoothstep(6.0, 7.0, darkDomain);
+	noiseUV.y *= .5;
 
+	// The size of the edge, now run by time to test
+	float edge = mix(3.0, 20.0, sin(time * .2 + .3) * .5 + .5);
+
+
+	float darkDomain = n.x + n.y + noiseUV.x - noiseUV.y + sin(time + (noiseUV.x + noiseUV.y) * .25); 
+	float dark = smoothstep(edge, edge + 1.0, darkDomain);
 
 	vec4 fire = texture2D(gradient, vec2(dark));
 
@@ -22,5 +30,16 @@ void main()
 	float diffuse = normal.z * .5 + .5;
 	float spec = pow(diffuse, 25.0) * .5;
 
-	gl_FragColor = fire + vec4(diffuse * vUv.x * .85 + .15) * dark + vec4(spec) * (1.0 - dark);
+	vec4 lightColor = texture2D(lightLit, (normal.xy * .5 + .5) * (vUv.x * .5 + .5));
+
+	// Some AO by multiplying the color by itself based on uvs
+	lightColor *= mix(lightColor, vec4(1.0), vUv.x * vUv.x);
+
+	vec4 darkColor = vec4(spec);
+
+
+	lightColor = vec4(diffuse * vUv.x * .85 + .15);
+
+	// gl_FragColor = fire + vec4(diffuse * vUv.x * .85 + .15) * dark + vec4(spec) * (1.0 - dark);
+	gl_FragColor = fire + mix(lightColor, darkColor, dark);
 }
