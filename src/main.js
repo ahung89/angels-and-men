@@ -83,14 +83,20 @@ function loadBackground()
         fragmentShader: require("./shaders/cinematic_bars.frag.glsl")
     });
 
+
+
     cinematicBarsMaterial.depthFunc = THREE.AlwaysDepth;
     cinematicBarsMaterial.depthWrite = false;
     cinematicBarsMaterial.depthTest = false;
     cinematicBarsMaterial.side = THREE.DoubleSide;
+    
+    // The cinematic bars need to be transparent, else any transparent object will be on top of it
+    cinematicBarsMaterial.transparent = true;
+    cinematicBarsMaterial.blending = THREE.NoBlending;
 
     loadMesh('cinematic_bars', function(mesh) {
         mesh.material = cinematicBarsMaterial;
-        mesh.renderOrder = 10; // This is the last thing rendered
+        mesh.renderOrder = 20; // This is the last thing rendered
         mesh.frustumCulled = false;
         Engine.scene.add(mesh);
     });
@@ -621,6 +627,17 @@ function loadWings()
         });
     });
 
+
+    loadMesh('angel_sword', function(mesh) {
+        mesh.material = angelMaterial;
+        Engine.scene.add(mesh);
+
+        cinematicElements.push({
+
+        });
+    });
+
+
     var energyTexture = THREE.ImageUtils.loadTexture("./images/energy.png")
     energyTexture.wrapS = energyTexture.wrapT = THREE.RepeatWrapping;
 
@@ -642,6 +659,7 @@ function loadWings()
     loadMesh('energy', function(mesh) {
         mesh.material = energyMaterial;
         mesh.scale.set(1.5,1,1.5);
+        mesh.renderOrder = 2;
 
         Engine.scene.add(mesh);
 
@@ -723,8 +741,8 @@ function onLoad(framework)
     camera.lookAt(new THREE.Vector3(0,10,0));
     // camera.rotateZ(3.14 * -.5);
 
-    LoadCinematicElement(loadBackground);
     LoadCinematicElement(loadWings);
+    LoadCinematicElement(loadBackground);
     // loadWingConstructionCurves();
 
     // edit params and listen to changes like this
