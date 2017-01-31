@@ -573,8 +573,18 @@ function loadWings()
         Engine.scene.add(wing2);
     });
 
+
+    var angelMaterial = new THREE.ShaderMaterial({
+        vertexColors: THREE.VertexColors,
+        uniforms: {
+          time: { type: "f", value : 0.0 },
+        },
+        vertexShader: require("./shaders/angel.vert.glsl"),
+        fragmentShader: require("./shaders/angel.frag.glsl")
+    });
+
     loadMesh('angel', function(mesh) {
-        mesh.material = featherMaterial;
+        mesh.material = angelMaterial;
         Engine.scene.add(mesh);
 
         cinematicElements.push({
@@ -582,9 +592,59 @@ function loadWings()
         });
     });
 
+    var energyTexture = THREE.ImageUtils.loadTexture("./images/energy.png")
+    energyTexture.wrapS = energyTexture.wrapT = THREE.RepeatWrapping;
+
+    var energyMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          time: { type: "f", value : 0.0 },
+            energyTexture: { type: "t", value: energyTexture}
+        },
+        vertexShader: require("./shaders/energy.vert.glsl"),
+        fragmentShader: require("./shaders/energy.frag.glsl")
+    });
+
+    energyMaterial.blending = THREE.CustomBlending;
+    energyMaterial.blendEquation = THREE.AddEquation;
+    energyMaterial.blendSrc = THREE.OneFactor;
+    energyMaterial.blendDst = THREE.OneFactor;
+    energyMaterial.transparent = true;
+
+    loadMesh('energy', function(mesh) {
+        mesh.material = energyMaterial;
+        mesh.scale.set(1.5,1,1.5);
+
+        Engine.scene.add(mesh);
+
+        cinematicElements.push({
+        });
+    });
+
+    var haloMaterial = new THREE.ShaderMaterial({
+        vertexColors: THREE.VertexColors,
+        uniforms: {
+            time: { type: "f", value : 0.0 },
+            sphereLit : { type: "t", value: THREE.ImageUtils.loadTexture("./images/halo.png")}
+        },
+        vertexShader: require("./shaders/halo.vert.glsl"),
+        fragmentShader: require("./shaders/halo.frag.glsl")
+    });
+
+
+    loadMesh('halo', function(mesh) {
+        mesh.material = haloMaterial;
+        mesh.position.set(0, 3.41, 3.371);
+        mesh.rotateX(Math.PI * 20 / 180);
+        
+        Engine.scene.add(mesh);
+
+        cinematicElements.push({
+        });
+    });
+
     var cinematicElement = {
         time : 0.0,
-        material : featherMaterial
+        materials : [featherMaterial, energyMaterial, haloMaterial]
     }
 
     return cinematicElement;
