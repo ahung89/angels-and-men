@@ -253,8 +253,8 @@ function loadWingConstructionCurves()
         pointGeo.vertices.push( endCurve.getPoint(accumEnd).clone().add(new THREE.Vector3(0, 1, 0)) );
     }
 
-    var uSize = 100;
-    var vSize = 100;
+    var uSize = 50;
+    var vSize = 50;
     for(var u = 0; u <= uSize; u++)
     {
         for(var v = 0; v <= vSize; v++)
@@ -331,7 +331,7 @@ function findSegmentIndex(t, parameterSubdivision)
         if(x - parameterSubdivision[i] < 0)
         {
             index = i + 1;
-            x = x / parameterSubdivision[i];
+            x = THREE.Math.clamp(x / parameterSubdivision[i], 0, 1);
             break;
         }
         else
@@ -371,8 +371,11 @@ function evaluateCurveLoft(transversalCurves, u, v)
 
     var index = startIndex;
 
-    if(endIndex > 0 && index > 0 && index < transversalCurves.length)
+    if(endIndex > 0 && index > 0)
     {
+        if(index >= transversalCurves.length)
+            return transversalCurves[transversalCurves.length - 1].getPoint(v);
+
         // Interpolating transversal curves
         var prevPoint = transversalCurves[index - 1].getPoint(v);
         var currentPoint = transversalCurves[index].getPoint(v);
@@ -401,10 +404,9 @@ function evaluateCurveLoft(transversalCurves, u, v)
         Lv.add(B);
 
         return Lv;
-
     }
 
-    return new THREE.Vector3(0,0,0);
+    return transversalCurves[0].getPoint(v);
 }
 
 function loadWings()
@@ -426,13 +428,13 @@ function loadWings()
     container.position.set(0,.9,0);
     Engine.scene.add(container);
 
+    // Feather roots 
     loadMesh('wing_start', function(mesh) {
         mesh.material = featherMaterial;
 
         var feathers = [];
         var feathersToAdd = 75;
 
-        // First, big feathers
         for(var i = 0; i < feathersToAdd; i++)
         {
             var x = i / feathersToAdd;
@@ -441,92 +443,148 @@ function loadWings()
             feather.userData = { t : x };
             feathers.push(feather);
 
-            var tangent = curve.getTangent(x);
-            var normal = new THREE.Vector3( -tangent.z, 0, tangent.x);
-            var position = curve.getPoint(x);// new THREE.Vector3(x, .1, 0.0);
+            var position = evaluateCurveLoft(transversalCurves, x, 0);
+            position.add(randomPoint(.02));
 
+            var target = evaluateCurveLoft(transversalCurves, x, .4)
+            target.add(randomPoint(.02));
 
-            // position = evaluateCurveLoft(transversalCurves, x, 0);
-
-            var target = evaluateCurveLoft(transversalCurves, x, 0);
-            // position.add(wingPositionFunction(x));
-            // position.add(randomPoint(.025));
-
-
-            // var direction = new THREE.Vector3( -wingPositionFunctionDeriv(x), 0, x );
-            // direction.multiplyScalar(.1);
-            // position.add(direction);
-            // position.add(new THREE.Vector3(0.0, l * .1, 0.0));
-
-            var scale = new THREE.Vector3( 2, .1, .1 );
-            // var scale = new THREE.Vector3(.2 + wingPositionFunction(x) * .25 + Math.sin(x*3.14 * .8 - 1.5) * .05, .5, .2 + x * .2);
-            // scale.add(randomPoint(.2 * x));
+            var scale = new THREE.Vector3( 2, 1, 1 );
+            scale.add(randomPoint(.05));
 
             feather.position.copy(position);
             feather.scale.copy(scale);
-
-
             feather.lookAt(target);
             feather.rotateY(3.14 * -.5);    
-            // feather.lookAt(position.clone().add(tangent.clone().negate()));
 
-            // f.rotation.set(0, 3.14, 0);
-            // feather.rotation.set(.15, lerp(3.14, 5.25, x*x), .05);
-            // feather.rotateX(.35);
+            container.add(feather);
+        }
+    });
 
-            // position.add(direction);
-            // f.lookAt(position);
+    // Feathers
+    loadMesh('feather', function(mesh) {
+        mesh.material = featherMaterial;
+
+        var feathers = [];
+        var feathersToAdd = 75;
+
+        // First, main feathers
+        for(var i = 0; i < feathersToAdd; i++)
+        {
+            var x = THREE.Math.clamp(i / feathersToAdd, 0, 1);
+
+            var feather = mesh.clone();
+            // feather.userData = { t : x };
+            feathers.push(feather);
+
+            var position = evaluateCurveLoft(transversalCurves, x, .05);
+            position.y -= .1;
+            position.add(randomPoint(.02));
+
+            var target = evaluateCurveLoft(transversalCurves, x, .5)
+            target.add(randomPoint(.02));
+
+            var scale = new THREE.Vector3( .45 + (x * .25), 2, 1 );
+            scale.add(randomPoint(.05));
+            scale.multiplyScalar(1.5);
+
+            feather.position.copy(position);
+            feather.scale.copy(scale);
+            feather.lookAt(target);
+            feather.rotateY(3.14 * -.5);  
+            feather.rotateX(.15 + Math.random() * .1);  
+            feather.rotateZ(.2 + Math.random() * .05);
+
+
             container.add(feather);
         }
 
-        feathersToAdd = 50;
+        // Secondary feathers
+        for(var i = 0; i < feathersToAdd; i++)
+        {
+            var x = i / feathersToAdd;
 
-        // // Secondary small feathers on top
-        // for(var i = 0; i < feathersToAdd; i++)
-        // {
-        //     var x = i / feathersToAdd;
+            var feather = mesh.clone();
+            feather.userData = { t : x };
+            feathers.push(feather);
 
-        //     var feather = mesh.clone();
-        //     feather.userData = { t : x };
-        //     feathers.push(feather);
+            var position = evaluateCurveLoft(transversalCurves, x, .1 + x * .1);
+            position.add(randomPoint(.02));
 
-        //     var position = new THREE.Vector3(x, .11, wingPositionFunction(x) * 1.5);
-        //     position.add(randomPoint(.015 * x));
+            var target = evaluateCurveLoft(transversalCurves, x, .7)
+            target.add(randomPoint(.02));
 
-        //     // var direction = new THREE.Vector3( -wingPositionFunctionDeriv(x), 0, x );
-        //     // direction.multiplyScalar(.1);
-        //     // position.add(direction);
-        //     // position.add(new THREE.Vector3(0.0, l * .1, 0.0));
+            var scale = new THREE.Vector3( .5 + x * Math.random(), 2, 2 );
+            scale.add(randomPoint(.05));
+            scale.multiplyScalar(1.5);
 
-        //     var scale = new THREE.Vector3(.1 + wingPositionFunction(x) * .2 + Math.sin(x*3.14 * .8 - 1.5) * .03, .5, .2 + x * .3);
-        //     scale.add(randomPoint(.05 * x * x));
+            feather.position.copy(position);
+            feather.scale.copy(scale);
+            feather.lookAt(target);
+            feather.rotateY(3.14 * -.5);  
+            feather.rotateX(.15 + Math.random() * .1);  
+            feather.rotateZ(.1 + Math.random() * .05);
 
-        //     feather.position.copy(position);
-        //     feather.scale.copy(scale);
-        //     // f.rotation.set(0, 3.14, 0);
-        //     feather.rotation.set(0, lerp(3.14, 5.25, x*x), 0);
-        //     feather.rotateX(.25);
+            container.add(feather);
+        }
 
-        //     // position.add(direction);
-        //     // f.lookAt(position);
-        //     Engine.scene.add(feather);
-        // }
+        // Third row of feathers
+        for(var i = 0; i < feathersToAdd; i++)
+        {
+            // We want more on the end
+            var x = Math.sqrt(i / feathersToAdd);
+
+            var feather = mesh.clone();
+            feather.userData = { t : x };
+            feathers.push(feather);
+
+            var position = evaluateCurveLoft(transversalCurves, x, .3);
+            position.add(randomPoint(.02));
+
+            var target = evaluateCurveLoft(transversalCurves, x, .9)
+            target.add(randomPoint(.02));
+
+            var scale = new THREE.Vector3( .5 + x * Math.random(), 2, 1.25 + Math.random() );
+            scale.add(randomPoint(.05));
+            scale.multiplyScalar(1.5);
+
+            feather.position.copy(position);
+            feather.scale.copy(scale);
+            feather.lookAt(target);
+            feather.rotateY(3.14 * -.5);  
+            feather.rotateX(.15 + Math.random() * .1);  
+            feather.rotateZ(.1 + Math.random() * .05);
+
+            container.add(feather);
+        }
+
+        container.rotateX(Math.PI * -.23);
+        container.rotateY(Math.PI);
+        container.rotateZ(Math.PI * .65);
+        container.position.set(.1,3,2);
+
+        // Lazy clone for now, later I'll create a true secondary wing
+        var wing2 = container.clone(true);
+        wing2.position.set(.1,3,2);
+        wing2.rotateOnAxis(new THREE.Vector3(0,0,1), Math.PI * -.35);
+        wing2.scale.set(1,-1,1);
+
+        // wing2.position.set(-5, 0, -5);
+        Engine.scene.add(wing2);
     });
 
+    loadMesh('angel', function(mesh) {
+        mesh.material = featherMaterial;
+        Engine.scene.add(mesh);
 
+        cinematicElements.push({
 
-    // loadMesh('angel', function(mesh) {
-    //     mesh.material = wingMaterial;
-    //     Engine.scene.add(mesh);
-
-    //     cinematicElements.push({
-
-    //     });
-    // });
+        });
+    });
 
     var cinematicElement = {
         time : 0.0,
-        material : null
+        material : featherMaterial
     }
 
     return cinematicElement;
@@ -563,13 +621,13 @@ function onLoad(framework)
     Engine.camera = camera;
 
     camera.fov = 25;
-    camera.position.set(0, 3, .1);
-    camera.lookAt(new THREE.Vector3(0,0,0));
-    camera.rotateZ(3.14 * -.5);
+    camera.position.set(15, .5, 15);
+    camera.lookAt(new THREE.Vector3(0,10,0));
+    // camera.rotateZ(3.14 * -.5);
 
     LoadCinematicElement(loadBackground);
-    // LoadCinematicElement(loadWings);
-    loadWingConstructionCurves();
+    LoadCinematicElement(loadWings);
+    // loadWingConstructionCurves();
 
     // edit params and listen to changes like this
     // more information here: https://workshop.chromeexperiments.com/examples/gui/#1--Basic-Usage

@@ -1,11 +1,20 @@
 varying vec2 vUv;
 varying vec3 vNormal;
 
+uniform float time;
+
 void main() 
 {
 	vUv = uv;
 	vNormal = normalMatrix * normal;
 	
     vec3 pos = position;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+    pos.y += uv.x * .1;
+
+    vec4 wPos = modelMatrix * vec4(pos, 1.0);
+    pos.z += uv.x * sin(time * 2.0 + (wPos.x + wPos.y + wPos.z) * .5) * .025;
+
+    wPos = modelMatrix * vec4(pos, 1.0);
+    // wPos.y = sqrt(wPos.y/.2);
+    gl_Position = projectionMatrix * viewMatrix * wPos;
 }
