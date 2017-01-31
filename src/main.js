@@ -456,19 +456,21 @@ function loadWings()
             feather.userData = { t : x };
             feathers.push(feather);
 
-            var position = evaluateCurveLoft(transversalCurves, x, 0);
+            var position = evaluateCurveLoft(transversalCurves, x, 0 + Math.random() * .005);
             position.add(randomPoint(.02));
 
-            var target = evaluateCurveLoft(transversalCurves, x, .4)
+            var target = evaluateCurveLoft(transversalCurves, x, .2)
             target.add(randomPoint(.02));
 
-            var scale = new THREE.Vector3( 2, 1, 1 );
+            var scale = new THREE.Vector3( 2, 2, 1 );
             scale.add(randomPoint(.05));
 
             feather.position.copy(position);
             feather.scale.copy(scale);
             feather.lookAt(target);
             feather.rotateY(3.14 * -.5);    
+
+            feather.matrixWorldNeedsUpdate = true;
 
             container.add(feather);
         }
@@ -490,7 +492,7 @@ function loadWings()
             // feather.userData = { t : x };
             feathers.push(feather);
 
-            var position = evaluateCurveLoft(transversalCurves, x, .05);
+            var position = evaluateCurveLoft(transversalCurves, x, .05 + Math.random() * .02);
             position.y -= .1;
             position.add(randomPoint(.02));
 
@@ -508,6 +510,7 @@ function loadWings()
             feather.rotateX(.15 + Math.random() * .1);  
             feather.rotateZ(.2 + Math.random() * .05);
 
+            feather.matrixWorldNeedsUpdate = true;
 
             container.add(feather);
         }
@@ -515,19 +518,19 @@ function loadWings()
         // Secondary feathers
         for(var i = 0; i < feathersToAdd; i++)
         {
-            var x = i / feathersToAdd;
+            var x = Math.sqrt(THREE.Math.clamp(i / feathersToAdd, 0, 1));
 
             var feather = mesh.clone();
             feather.userData = { t : x };
             feathers.push(feather);
 
-            var position = evaluateCurveLoft(transversalCurves, x, .1 + x * .1);
+            var position = evaluateCurveLoft(transversalCurves, x, .05 + x * .1 + Math.random() * .05);
             position.add(randomPoint(.02));
 
             var target = evaluateCurveLoft(transversalCurves, x, .7)
             target.add(randomPoint(.02));
 
-            var scale = new THREE.Vector3( .5 + x * Math.random(), 2, 2 );
+            var scale = new THREE.Vector3( .65 + x * Math.random() * 1.5, 2, 2 );
             scale.add(randomPoint(.05));
             scale.multiplyScalar(1.5);
 
@@ -535,13 +538,16 @@ function loadWings()
             feather.scale.copy(scale);
             feather.lookAt(target);
             feather.rotateY(3.14 * -.5);  
-            feather.rotateX(.15 + Math.random() * .1);  
-            feather.rotateZ(.1 + Math.random() * .05);
+            feather.rotateX(.3 + Math.random() * .1);  
+            feather.rotateZ(.2 + Math.random() * .05);
+            feather.matrixWorldNeedsUpdate = true;
 
             container.add(feather);
         }
+        
+        feathersToAdd = 100;
 
-        // Third row of feathers
+        // Third row of feathers, biggest
         for(var i = 0; i < feathersToAdd; i++)
         {
             // We want more on the end
@@ -551,7 +557,7 @@ function loadWings()
             feather.userData = { t : x };
             feathers.push(feather);
 
-            var position = evaluateCurveLoft(transversalCurves, x, .3);
+            var position = evaluateCurveLoft(transversalCurves, x, .3 + Math.random() * .05);
             position.add(randomPoint(.02));
 
             var target = evaluateCurveLoft(transversalCurves, x, .9)
@@ -567,6 +573,7 @@ function loadWings()
             feather.rotateY(3.14 * -.5);  
             feather.rotateX(.15 + Math.random() * .1);  
             feather.rotateZ(.1 + Math.random() * .05);
+            feather.matrixWorldNeedsUpdate = true;
 
             container.add(feather);
         }
@@ -584,6 +591,7 @@ function loadWings()
 
         // wing2.position.set(-5, 0, -5);
         Engine.scene.add(wing2);
+        wing2.matrixWorldNeedsUpdate = true;
     });
 
 
