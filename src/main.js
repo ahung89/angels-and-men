@@ -91,6 +91,7 @@ function loadBackground()
     loadMesh('cinematic_bars', function(mesh) {
         mesh.material = cinematicBarsMaterial;
         mesh.renderOrder = 10; // This is the last thing rendered
+        mesh.frustumCulled = false;
         Engine.scene.add(mesh);
     });
 
@@ -234,11 +235,49 @@ function loadWingConstructionCurves()
 {
     var curve = GetWingConstructionCurve();
     var transversalCurves = GetWingTransversalCurves();
+    var endCurve = GetWingEndCurve();
+
+    var startParams = getStartCurveParameters();
+    var endParams = getEndCurveParameters();
+
+    var pointGeo = new THREE.Geometry();
+
+    var accum = 0;
+    var accumEnd = 0; 
+    for(var i = 0; i < startParams.length; i++)
+    {
+        accum += startParams[i];
+        accumEnd += endParams[i];
+
+        pointGeo.vertices.push( curve.getPoint(accum).clone().add(new THREE.Vector3(0, 1, 0)) );
+        pointGeo.vertices.push( endCurve.getPoint(accumEnd).clone().add(new THREE.Vector3(0, 1, 0)) );
+    }
+
+    var uSize = 100;
+    var vSize = 100;
+    for(var u = 0; u <= uSize; u++)
+    {
+        for(var v = 0; v <= vSize; v++)
+        {
+            var s = u / uSize;
+            var t = v / vSize;
+
+            pointGeo.vertices.push( evaluateCurveLoft(transversalCurves, s, t).clone().add(new THREE.Vector3(0, 1, 0)) );
+
+
+        }
+    }
+
+    var pointMaterial = new THREE.PointsMaterial( { color: 0xff0000 } )
+    pointMaterial.size = .2;
+    var points = new THREE.Points( pointGeo, pointMaterial );
+    Engine.scene.add( points );
+
 
     for(var i = 0; i < transversalCurves.length; i++)
     {
         var curveGeo = new THREE.Geometry();
-        curveGeo.vertices = transversalCurves[i].getPoints(20);
+        curveGeo.vertices = transversalCurves[i].getPoints(50);
 
         var curveMaterial = new THREE.LineBasicMaterial( { color : 0x0000ff } );
         var curveObject = new THREE.Line( curveGeo, curveMaterial );
@@ -249,7 +288,7 @@ function loadWingConstructionCurves()
 
     {
         var curveGeo = new THREE.Geometry();
-        curveGeo.vertices = curve.getPoints( 100 );
+        curveGeo.vertices = curve.getPoints( 50 );
 
         var curveMaterial = new THREE.LineBasicMaterial( { color : 0x00ff00 } );
         var curveObject = new THREE.Line( curveGeo, curveMaterial );
@@ -260,7 +299,7 @@ function loadWingConstructionCurves()
 
     {
         var curveGeo = new THREE.Geometry();
-        curveGeo.vertices = GetWingEndCurve().getPoints( 100 );
+        curveGeo.vertices = endCurve.getPoints( 50 );
 
         var curveMaterial = new THREE.LineBasicMaterial( { color : 0x00ff00 } );
         var curveObject = new THREE.Line( curveGeo, curveMaterial );
@@ -270,47 +309,102 @@ function loadWingConstructionCurves()
     }
 }
 
-function evaluateCurveLoft(transversalCurves, u, v)
+function getStartCurveParameters()
 {
-    var curveCount = transversalCurves.length;    
-    var parameterSubdivision = [ .1, .15, .15, .3, .3];
+    return [ .1, .15, .15, .3, .2, .5];
+}
 
-    var x = u;
-    var index = -1;
+function getEndCurveParameters()
+{
+    return [ .05, .1, .08, .15, .23, .5];
+}
 
-    for(var i = 0; i < curveCount; i++)
+// Find on which segment this t is found
+function findSegmentIndex(t, parameterSubdivision)
+{
+    var x = t;
+    var index = 0;
+    var rawX = t;
+
+    for(var i = 0; i < parameterSubdivision.length; i++)
     {
-        if( x - parameterSubdivision[i] < 0)
+        if(x - parameterSubdivision[i] < 0)
         {
-            index = i;
+            index = i + 1;
             x = x / parameterSubdivision[i];
             break;
         }
         else
         {
             x -= parameterSubdivision[i];
+            rawX -= parameterSubdivision[i];
         }
     }
 
-    // console.log(x + ', ' + index);
+    return [index, x, rawX];
+}
 
-    var currentIndex = index;
-    var t = THREE.Math.smootherstep(x, 0, 1);
+function accumulateParams(params, index)
+{
+    var r = 0;
+    for(var i = 0; i < index; i++)
+        r += params[i];
 
-    if(currentIndex > 0)
+    return r;
+}
+
+// Essentially a Coons Patch
+function evaluateCurveLoft(transversalCurves, u, v)
+{
+    u = THREE.Math.clamp(u, 0, 1);
+    v = THREE.Math.clamp(v, 0, 1);
+
+    var startCurve = GetWingConstructionCurve();
+    var endCurve = GetWingEndCurve();
+
+    var curveCount = transversalCurves.length;    
+    var startParams = getStartCurveParameters();
+    var endParams = getEndCurveParameters();
+
+    var [startIndex, startT, rawStartT] = findSegmentIndex(u, startParams);
+    var [endIndex, endT, rawEndT] = findSegmentIndex(u, endParams);
+
+    var index = startIndex;
+
+    if(endIndex > 0 && index > 0 && index < transversalCurves.length)
     {
-        var prevPoint = transversalCurves[currentIndex - 1].getPoint(v);
-        var currentPoint = transversalCurves[currentIndex].getPoint(v);
+        // Interpolating transversal curves
+        var prevPoint = transversalCurves[index - 1].getPoint(v);
+        var currentPoint = transversalCurves[index].getPoint(v);
+        var Lu = prevPoint.lerp(currentPoint, 1.0 - startT);
 
-        return prevPoint.lerp(currentPoint, t);
-    }
-    else
-    {
-        var currentPoint = transversalCurves[currentIndex].getPoint(v);
+        // Interpolating big curves
+        var crossT = THREE.Math.clamp(accumulateParams(startParams, startIndex) + startParams[startIndex] * (1.0 - startT), 0, 1);
+        var crossEndT = THREE.Math.clamp(accumulateParams(endParams, startIndex) + endParams[startIndex] * (1.0 - startT), 0, 1);
 
-        var lastPoint = transversalCurves[currentIndex].getPoint(1.0);
-        return currentPoint.lerp(lastPoint, t);
+        var startPoint = startCurve.getPoint(crossT);
+        var endPoint = endCurve.getPoint(crossEndT);
+        var Lv = startPoint.lerp(endPoint, v);
+
+        Lv.add(Lu);
+
+        // Bilinear filtering of corners
+        var b1 = transversalCurves[index - 1].getPoint(0);
+        var b2 = transversalCurves[index].getPoint(0).lerp(b1, startT);
+
+        var b3 = transversalCurves[index - 1].getPoint(1);
+        var b4 = transversalCurves[index].getPoint(1).lerp(b3, startT);
+        
+        var B = b2.lerp(b4, v);
+
+        B.negate();
+        Lv.add(B);
+
+        return Lv;
+
     }
+
+    return new THREE.Vector3(0,0,0);
 }
 
 function loadWings()
@@ -474,7 +568,7 @@ function onLoad(framework)
     camera.rotateZ(3.14 * -.5);
 
     LoadCinematicElement(loadBackground);
-    LoadCinematicElement(loadWings);
+    // LoadCinematicElement(loadWings);
     loadWingConstructionCurves();
 
     // edit params and listen to changes like this
