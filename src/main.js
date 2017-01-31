@@ -48,7 +48,7 @@ var Engine = {
 function loadMesh(objName, func)
 {    
     var objLoader = new THREE.OBJLoader();
-    objLoader.load('/geo/' + objName + '.obj', function(obj) {
+    objLoader.load('./geo/' + objName + '.obj', function(obj) {
         obj.traverse( function ( child ) {
           if ( child instanceof THREE.Mesh ) {
             func(child);
@@ -64,7 +64,7 @@ function loadBackground()
     var floorMaterial = new THREE.ShaderMaterial({
         uniforms: {
             time: { type: "f", value : 0.0 },
-            gradientTexture: { type: "t", value: THREE.ImageUtils.loadTexture("/images/gradient_floor.png")}
+            gradientTexture: { type: "t", value: THREE.ImageUtils.loadTexture("./images/gradient_floor.png")}
         },
         vertexShader: require("./shaders/floor.vert.glsl"),
         fragmentShader: require("./shaders/floor.frag.glsl")
