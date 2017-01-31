@@ -8,6 +8,14 @@ void main()
 {
     vColor = color;
 	vUv = uv;
-	vNormal = normalMatrix * normal;	
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+	vNormal = normal;
+
+    vec3 pos = position;
+
+    // Let the poor angel breathe!
+    float t = sin(time) * .5 + .5;
+    float lengthToChest = 1.0 - clamp(.5 * length(pos - vec3(0.0, 3.0, 1.5)), 0.0, 1.0);
+    pos += normal * lengthToChest * t * .2;
+
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
 }

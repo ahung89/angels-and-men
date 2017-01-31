@@ -409,6 +409,19 @@ function evaluateCurveLoft(transversalCurves, u, v)
     return transversalCurves[0].getPoint(v);
 }
 
+function makeMaterialAdditive(material)
+{
+    material.transparent = true;
+
+    material.blending = THREE.CustomBlending;
+    material.blendEquation = THREE.AddEquation;
+    material.blendSrc = THREE.OneFactor;
+    material.blendDst = THREE.OneFactor;
+
+    material.depthTest = false;
+    material.depthWrite = false;
+}
+
 function loadWings()
 {
     var featherMaterial = new THREE.ShaderMaterial({
@@ -578,6 +591,7 @@ function loadWings()
         vertexColors: THREE.VertexColors,
         uniforms: {
           time: { type: "f", value : 0.0 },
+          gradient: { type: "t", value: THREE.ImageUtils.loadTexture("./images/gradient_floor.png")}
         },
         vertexShader: require("./shaders/angel.vert.glsl"),
         fragmentShader: require("./shaders/angel.frag.glsl")
@@ -630,21 +644,30 @@ function loadWings()
         fragmentShader: require("./shaders/halo.frag.glsl")
     });
 
+    var haloContainer = new THREE.Object3D();
+    haloContainer.position.set(0, 3.41, 3.371);
+    haloContainer.rotateX(Math.PI * 20 / 180);
 
     loadMesh('halo', function(mesh) {
         mesh.material = haloMaterial;
-        mesh.position.set(0, 3.41, 3.371);
-        mesh.rotateX(Math.PI * 20 / 180);
-        
-        Engine.scene.add(mesh);
+        haloContainer.add(mesh);
+
+        var geometry = new THREE.PlaneGeometry( 1, 1, 1 );
+        var plane = new THREE.Mesh( geometry, energyMaterial );
+        plane.frustumCulled = false;
+        haloContainer.add( plane );
+
+        // TODO: Lookat camera
 
         cinematicElements.push({
         });
     });
 
+    Engine.scene.add(haloContainer);
+
     var cinematicElement = {
         time : 0.0,
-        materials : [featherMaterial, energyMaterial, haloMaterial]
+        materials : [featherMaterial, energyMaterial, haloMaterial, angelMaterial]
     }
 
     return cinematicElement;

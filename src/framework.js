@@ -30,7 +30,7 @@ function init(callback, update) {
     var renderer = new THREE.WebGLRenderer( { antialias: true } );
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setClearColor(0x000000, 1);
+    renderer.setClearColor(0x130806, 1);
 
     var controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;

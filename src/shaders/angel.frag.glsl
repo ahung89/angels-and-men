@@ -2,10 +2,12 @@ varying vec2 vUv;
 varying vec3 vNormal;
 varying vec3 vColor;
 
+uniform sampler2D gradient;
+
 void main() 
 {
 	vec3 normal = normalize(vNormal);
-	float diffuse = normal.z * .5 + .5;
+	float diffuse = pow(clamp(normal.y + normal.z * .1, 0.0, 1.0), 1.0) + .05;
 
-	gl_FragColor = vec4(diffuse * .75 + .25);
+	gl_FragColor = texture2D(gradient, vec2(0, diffuse));
 }
