@@ -3,6 +3,7 @@ varying vec3 vNormal;
 varying vec3 worldPos;
 
 uniform float time;
+uniform float desintegrationFactor;
 
 uniform sampler2D gradient;
 uniform sampler2D noise;
@@ -18,7 +19,7 @@ void main()
 	noiseUV.y *= .5;
 
 	// The size of the edge, now run by time to test
-	float edge = 10.0;//mix(3.0, 20.0, sin(time * .2 + .3) * .5 + .5);
+	float edge = mix(20.0, 3.0, desintegrationFactor);
 
 
 	float darkDomain = n.x + n.y + noiseUV.x - noiseUV.y + sin(time + (noiseUV.x + noiseUV.y) * 4.15); 

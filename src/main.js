@@ -2,10 +2,14 @@ const THREE = require('three');
 import Framework from './framework'
 
 var CameraShot = {
-  INTRO : 0,
-  MAIN : 1,
-  CEILING : 2,
-  OVERVIEW : 3
+  INTRO_D1 : 0,
+  INTRO_D2 : 1,
+  INTRO_D3 : 2,
+  INTRO_D4 : 3,
+
+  MAIN_D1 : 4,
+  CEILING : 5,
+  OVERVIEW : 6
 }
 
 var State = {
@@ -27,6 +31,8 @@ var Engine = {
   renderer : null,
 
   camera : null,
+  cameraControllers : [],
+  currentCameraIndex : 0,
   cameraTime : 0,
   
   time : 0.0,
@@ -34,6 +40,11 @@ var Engine = {
   clock : null,
 
   music : null,
+
+  loadingBlocker : null,
+  desintegrationFactor : 0.0,
+  wingMaterial : null,
+  desintegrate : true,
   
   currentState : State.NONE,
   currentSubState : SubState.NONE,
@@ -131,8 +142,8 @@ function loadAndDistributeWeapons()
                     for(var c = 0; c < clusters; c++)
                     {
                         var radius = Math.random() * 10 + 18;
-                        var angle = Math.random() * Math.PI * 2;
-                        var clusterCenter = new THREE.Vector3(Math.cos(angle) * radius, 0.0, Math.sin(angle) * radius)
+                        var angle = Math.random() * Math.PI * 1.6 + .2; // We need some space for the camera!
+                        var clusterCenter = new THREE.Vector3(Math.sin(angle) * radius, 0.0, Math.cos(angle) * radius)
 
                         for(var i = 0; i < weaponsPerCluster; i++)
                         {
@@ -255,8 +266,34 @@ function loadBackground()
 
     var cinematicElement = {
         time : 0.0,
-        material : spotlightMaterial
+        material : spotlightMaterial,
+        materials : [overlayMaterial]
     }
+
+    var loaderMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          time: { type: "f", value : 0.0 },
+        },
+        vertexShader: require("./shaders/cinematic_bars.vert.glsl"),
+        fragmentShader: require("./shaders/cinematic_bars.frag.glsl")
+    });
+
+    loaderMaterial.depthFunc = THREE.AlwaysDepth;
+    loaderMaterial.depthWrite = false;
+    loaderMaterial.depthTest = false;
+    loaderMaterial.side = THREE.DoubleSide;
+    
+    // The cinematic bars need to be transparent, else any transparent object will be on top of it
+    loaderMaterial.transparent = true;
+    loaderMaterial.blending = THREE.NoBlending;
+
+
+    var loaderGeo = new THREE.PlaneGeometry(3, 3, 1 );
+    Engine.loadingBlocker = new THREE.Mesh( loaderGeo, loaderMaterial );
+    Engine.loadingBlocker.frustumCulled = false;
+    Engine.loadingBlocker.renderOrder = 50;
+    Engine.scene.add( Engine.loadingBlocker );
+
 
     return cinematicElement;
 }
@@ -648,6 +685,7 @@ function loadWings()
     var featherMaterial = new THREE.ShaderMaterial({
         uniforms: {
           time: { type: "f", value : 0.0 },
+          desintegrationFactor: { type: "f", value : 0.0 },
           gradient: { type: "t", value: THREE.ImageUtils.loadTexture("./images/gradient_wings.png")},
           noise: { type: "t", value: noiseTexture},
           lightLit: { type: "t", value: THREE.ImageUtils.loadTexture("./images/halo.png")},
@@ -655,6 +693,8 @@ function loadWings()
         vertexShader: require("./shaders/feather.vert.glsl"),
         fragmentShader: require("./shaders/feather.frag.glsl")
     });
+
+    Engine.wingMaterial = featherMaterial;
 
     var cinematicElements = [];
 
@@ -949,7 +989,22 @@ function loadWings()
         container.updateMatrixWorld(true);
         containerRight.updateMatrixWorld(true);
 
-        Engine.initialized = true;
+        // A more complex method needs state checking... 
+        var listener = new THREE.AudioListener();
+        Engine.camera.add(listener);
+        var sound = new THREE.Audio(listener);
+        var audioLoader = new THREE.AudioLoader();
+
+        //Load a sound and set it as the Audio object's buffer
+        audioLoader.load('./sound/music.mp3', function( buffer ) {
+            sound.setBuffer( buffer );
+            sound.setLoop(true);
+            sound.setVolume(1.0);
+            sound.play();
+
+            // Initialize the Engine ONLY when the sound is loaded
+            Engine.initialized = true;
+        });
     });
 
     var angelMaterial = new THREE.ShaderMaterial({
@@ -1027,7 +1082,6 @@ function loadWings()
         mesh.material = haloMaterial;
         haloContainer.add(mesh);
 
-
         var flare = new THREE.Geometry();
         flare.vertices.push(new THREE.Vector3(0,0,0));
         flare.vertices.push(new THREE.Vector3(0,0,0));
@@ -1058,6 +1112,8 @@ function loadWings()
 
             if(Engine.initialized)
             {
+                haloContainer.rotateY(.25 * Engine.deltaTime);
+
                 if(firstTime && feathers.length > 300)
                 {
                     firstTime = false;
@@ -1124,7 +1180,6 @@ function onLoad(framework)
     Engine.clock = new THREE.Clock();
     Engine.camera = camera;
 
-    camera.fov = 25;
     camera.position.set(15, .5, 15);
     camera.lookAt(new THREE.Vector3(0,10,0));
     // camera.rotateZ(3.14 * -.5);
@@ -1135,17 +1190,189 @@ function onLoad(framework)
     LoadCinematicElement(loadFlags);
     LoadCinematicElement(loadParticles);
 
+
+    Engine.cameraControllers.push(new CameraController(16, CameraShot.INTRO_D1, function(t) {
+        var direction = new THREE.Vector3(0,-t * 4.0,t);
+        var p = new THREE.Vector3(3, 5, 10).add(direction);
+        Engine.camera.position.copy(p);
+
+        Engine.camera.fov = 75;
+        Engine.camera.lookAt(p.add(new THREE.Vector3(15, 3, 10)));
+    }));
+
+    Engine.cameraControllers.push(new CameraController(16, CameraShot.INTRO_D2, function(t) {            
+        var direction = new THREE.Vector3(0,t * 2.0, t*10);
+        var p = new THREE.Vector3(-5, 10, -5).add(direction);
+
+        Engine.camera.position.copy(p);
+        Engine.camera.lookAt(p.add(direction.negate()));
+    }));
+
+    Engine.cameraControllers.push(new CameraController(15, CameraShot.INTRO_D3, function(t) {            
+        var direction = new THREE.Vector3(.5,t,-t * 10.0);
+        var p = new THREE.Vector3(-6, 3, 10).add(direction);
+
+        Engine.camera.position.copy(p);
+        Engine.camera.lookAt(p.add(new THREE.Vector3(0,-1,2)));
+    }));
+
+    Engine.cameraControllers.push(new CameraController(46, CameraShot.INTRO_D4, function(t) {            
+        var direction = new THREE.Vector3(.5,t,-t * 14.0);
+        var p = new THREE.Vector3(0, 2, 23).add(direction);
+
+        Engine.camera.fov = 75;
+        Engine.camera.position.copy(p);
+        Engine.camera.lookAt(new THREE.Vector3(0,3 + t * 9.5,0));
+    }, function() {
+        Engine.time = 0; // This will restart vignette ;)
+    }));
+
+    Engine.cameraControllers.push(new CameraController(16, CameraShot.MAIN_D1, function(t) {            
+        var direction = new THREE.Vector3(.5,-t * 10.0,0.0);
+        var p = new THREE.Vector3(8, 15, 8).add(direction);
+
+        Engine.camera.fov = 80;
+        Engine.camera.position.copy(p);
+        Engine.camera.lookAt(new THREE.Vector3(0,3 + t * 10,0));
+    }));
+
+    Engine.cameraControllers.push(new CameraController(15, CameraShot.MAIN_D1, function(t) {            
+        var direction = new THREE.Vector3(.5,-t * 10.0,0.0);
+        var p = new THREE.Vector3(0, 30, .5).add(direction);
+
+        Engine.camera.position.copy(p);
+        Engine.camera.lookAt(new THREE.Vector3(0,0,0));
+        Engine.camera.rotateZ(t);
+    }));
+
+    Engine.cameraControllers.push(new CameraController(18, CameraShot.INTRO_D2, function(t) {            
+        var direction = new THREE.Vector3(0,Math.cos(t) * 5,Math.sin(t) * 10);
+        var p = new THREE.Vector3(3, 10, 10).add(direction);
+
+        Engine.camera.position.copy(p);
+        Engine.camera.lookAt(new THREE.Vector3(0,1, 2));
+    }));
+
+    Engine.cameraControllers.push(new CameraController(32, CameraShot.INTRO_D2, function(t) {            
+        var direction = new THREE.Vector3(0,Math.cos(t) * 2,Math.sin(t) * 3);
+        var p = new THREE.Vector3(15, 3, 15).add(direction);
+
+        Engine.camera.position.copy(p);
+        Engine.camera.lookAt(new THREE.Vector3(0,1 + t * 10.0, 2));
+
+        if(Engine.desintegrate)
+            Engine.desintegrationFactor = t * .3;
+    }));
+
+    Engine.cameraControllers.push(new CameraController(15, CameraShot.MAIN_D1, function(t) {            
+        var direction = new THREE.Vector3(.5,t * 10.0,0.0);
+        var p = new THREE.Vector3(0, 20, .5).add(direction);
+
+        Engine.camera.position.copy(p);
+        Engine.camera.lookAt(new THREE.Vector3(0,0,0));
+        Engine.camera.rotateZ(t);
+
+        if(Engine.desintegrate)
+            Engine.desintegrationFactor = .6;
+
+    }, function() {
+        Engine.time = 0;
+    }));
+
+    Engine.cameraControllers.push(new CameraController(16, CameraShot.INTRO_D2, function(t) {            
+        var direction = new THREE.Vector3(0,Math.cos(t) * 2,Math.sin(t) * 3);
+        var p = new THREE.Vector3(5, 3, 12).add(direction);
+
+        Engine.camera.position.copy(p);
+        Engine.camera.lookAt(new THREE.Vector3(0,1 + t * 10.0, 2));
+
+        if(Engine.desintegrate)
+            Engine.desintegrationFactor = .6 + t * .1;
+    }));
+
+    Engine.cameraControllers.push(new CameraController(16, CameraShot.INTRO_D2, function(t) {        
+        Engine.desintegrate = false;
+
+        var direction = new THREE.Vector3(Math.cos(t) * 3, 10 * t, Math.sin(t) * 3);
+        var p = new THREE.Vector3(5, 3, 5).add(direction);
+
+        Engine.camera.position.copy(p);
+        Engine.camera.lookAt(new THREE.Vector3(0,p.y, 0));
+    }, function() {}, function() {
+        setActiveCamera(2);
+    }));
+
     // Uncomment this line if you want to see the surface patch!
     // loadWingConstructionCurves();
+
+    setActiveCamera(0);
 }
 
-// called on frame updates
+class CameraController {
+    constructor(duration, state, func, startFunc = null, onExitFunc = null,) {
+        this.func = func;
+        this.time = 0;
+        this.duration = duration;
+        this.state = state;
+        this.startFunc = startFunc;
+        this.onExitFunc = onExitFunc;
+    }
+
+    setActive()
+    {
+        if(this.startFunc != null)
+            this.startFunc();
+        
+        // This must be after the callback, because controllers may reset the time ;)
+        this.time = Engine.cameraTime;
+    }
+
+    update()
+    {
+        var t = THREE.Math.clamp((Engine.cameraTime - this.time) / this.duration, 0.0, 1.0);
+        this.func(t);    
+        return t >= 1;
+    }
+
+    onExit()
+    {
+        if(this.onExitFunc != null)
+            this.onExitFunc();
+    }
+}
+
+function updateCamera()
+{
+    if(Engine.currentCameraIndex < Engine.cameraControllers.length)
+    {
+        var controller = Engine.cameraControllers[Engine.currentCameraIndex];
+        var next = controller.update();
+
+        if(next)
+        {
+            controller.onExit();
+            setActiveCamera(Engine.currentCameraIndex + 1);
+        }
+    }
+}
+
+function setActiveCamera(index)
+{
+    Engine.currentCameraIndex = index;
+
+    if(Engine.currentCameraIndex < Engine.cameraControllers.length)
+        Engine.cameraControllers[Engine.currentCameraIndex].setActive();
+}
+
 function onUpdate(framework) 
 {
     if(Engine.initialized)
     {
+        Engine.loadingBlocker.visible = false;
         var screenSize = new THREE.Vector2( framework.renderer.getSize().width, framework.renderer.getSize().height );
         var deltaTime = Engine.clock.getDelta();
+
+        Engine.wingMaterial.uniforms.desintegrationFactor.value = Engine.desintegrationFactor;
 
         Engine.time += deltaTime;
         Engine.cameraTime += deltaTime;
@@ -1172,14 +1399,11 @@ function onUpdate(framework)
           if(material.uniforms["SCREEN_SIZE"] != null)
             material.uniforms.SCREEN_SIZE.value = screenSize;
         }
-    }
 
-    // var feather = framework.scene.getObjectByName("feather");    
-    // if (feather !== undefined) {
-    //     // Simply flap wing
-    //     var date = new Date();
-    //     feather.rotateZ(Math.sin(date.getTime() / 100) * 2 * Math.PI / 180);        
-    // }
+        updateCamera();
+
+        Engine.camera.updateProjectionMatrix();
+    }
 }
 
 // when the scene is done initializing, it will call onLoad, then on frame updates, call onUpdate
