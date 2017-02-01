@@ -30,6 +30,7 @@ var Engine = {
   cameraTime : 0,
   
   time : 0.0,
+  deltaTime : 0.0,
   clock : null,
 
   music : null,
@@ -168,7 +169,6 @@ function loadAndDistributeWeapons()
 
 function loadBackground()
 {   
-
     var floorMaterial = new THREE.ShaderMaterial({
         uniforms: {
             time: { type: "f", value : 0.0 },
@@ -183,6 +183,52 @@ function loadBackground()
         Engine.scene.add(mesh);
     });
 
+    var spotlightMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            time: { type: "f", value : 0.0 },
+            gradientTexture: { type: "t", value: THREE.ImageUtils.loadTexture("./images/spotlight_gradient.png")}
+        },
+        vertexShader: require("./shaders/spotlight.vert.glsl"),
+        fragmentShader: require("./shaders/spotlight.frag.glsl")
+    });
+
+    spotlightMaterial.side = THREE.DoubleSide;
+    makeMaterialAdditive(spotlightMaterial);
+
+    loadMesh('spotlight', function(mesh) {
+        mesh.material = spotlightMaterial;
+        mesh.scale.set(4.5,2,4.5);
+        mesh.position.set(0,-2,0);
+        mesh.frustumCulled = false;
+        Engine.scene.add(mesh);
+    });
+
+    var overlayMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          time: { type: "f", value : 0.0 },
+          vignette: { type: "t", value: THREE.ImageUtils.loadTexture("./images/vignette.png")}
+        },
+        vertexShader: require("./shaders/vignette.vert.glsl"),
+        fragmentShader: require("./shaders/vignette.frag.glsl")
+    });
+
+    overlayMaterial.blending = THREE.CustomBlending;
+    overlayMaterial.blendEquation = THREE.AddEquation;
+    overlayMaterial.blendSrc = THREE.DstColorFactor;
+    overlayMaterial.blendDst = THREE.SrcColorFactor;
+
+    overlayMaterial.depthFunc = THREE.AlwaysDepth;
+    overlayMaterial.depthWrite = false;
+    overlayMaterial.depthTest = false;
+    overlayMaterial.side = THREE.DoubleSide;
+    overlayMaterial.transparent = true;
+    overlayMaterial.renderOrder = 15;
+    
+    var overlayGeo = new THREE.PlaneGeometry( 1, 1, 1 );
+    var overlay = new THREE.Mesh( overlayGeo, overlayMaterial );
+    overlay.frustumCulled = false;
+    Engine.scene.add( overlay );
+
     var cinematicBarsMaterial = new THREE.ShaderMaterial({
         uniforms: {
           time: { type: "f", value : 0.0 },
@@ -190,8 +236,6 @@ function loadBackground()
         vertexShader: require("./shaders/cinematic_bars.vert.glsl"),
         fragmentShader: require("./shaders/cinematic_bars.frag.glsl")
     });
-
-
 
     cinematicBarsMaterial.depthFunc = THREE.AlwaysDepth;
     cinematicBarsMaterial.depthWrite = false;
@@ -211,7 +255,7 @@ function loadBackground()
 
     var cinematicElement = {
         time : 0.0,
-        material : null
+        material : spotlightMaterial
     }
 
     return cinematicElement;
@@ -536,6 +580,59 @@ function makeMaterialAdditive(material)
     material.depthWrite = false;
 }
 
+function loadParticles()
+{  
+    // We're not in mobile, and we hate performance! :D
+    var count = 700;
+
+    var particles = new THREE.Geometry();
+
+    for(var p = 0; p < count; p++)
+    {
+        var pPosition = randomPoint(20);
+        pPosition.y += 20; // No negative particles
+
+        particles.vertices.push(pPosition);
+    }
+
+    var pMaterial = new THREE.PointsMaterial( { color: 0xffd55c, map :THREE.ImageUtils.loadTexture("./images/particle.png")} )
+    pMaterial.transparent = true;
+
+    makeMaterialAdditive(pMaterial);
+    pMaterial.size = .1;
+    var points = new THREE.Points( particles, pMaterial );
+    points.onBeforeRender = function()
+    {
+        // console.log("test");
+
+        for(var p = 0; p < count; p++)
+        {
+            var vertex = particles.vertices[p];
+
+
+            vertex.y -= .1 * Engine.deltaTime;
+            vertex.x += Math.cos(Engine.time + vertex.z) * Engine.deltaTime * .2;
+            vertex.z += Math.sin(Engine.time + vertex.x) * Engine.deltaTime * .2;
+
+
+            // Toroidal everything
+            if(vertex.y < 0)
+                vertex.y = 40 - vertex.y;
+        }
+
+        particles.verticesNeedUpdate = true;
+    };
+
+    Engine.scene.add( points );
+
+    var cinematicElement = {
+        time : 0.0,
+        materials : []
+    }
+
+    return cinematicElement;
+}
+
 function loadWings()
 {
     var noiseTexture = THREE.ImageUtils.loadTexture("./images/noise.png");
@@ -702,11 +799,11 @@ function loadWings()
         container.rotateX(Math.PI * -.23);
         container.rotateY(Math.PI);
         container.rotateZ(Math.PI * .65);
-        container.position.set(.1,3,2);
+        container.position.set(.1,3.5,2);
 
         // Lazy clone for now, later I'll create a true secondary wing
         var wing2 = container.clone(true);
-        wing2.position.set(.1,3,2);
+        wing2.position.set(.1,3.5,2);
         wing2.rotateOnAxis(new THREE.Vector3(0,0,1), Math.PI * -.35);
         wing2.scale.set(1,-1,1);
 
@@ -852,6 +949,7 @@ function onLoad(framework)
     LoadCinematicElement(loadBackground);
     LoadCinematicElement(loadAndDistributeWeapons);
     LoadCinematicElement(loadFlags);
+    LoadCinematicElement(loadParticles);
     // loadWingConstructionCurves();
 
     // edit params and listen to changes like this
@@ -873,6 +971,7 @@ function onUpdate(framework)
 
         Engine.time += deltaTime;
         Engine.cameraTime += deltaTime;
+        Engine.deltaTime = deltaTime;
 
         // Update materials code
         for (var i = 0; i < Engine.materials.length; i++)
