@@ -54,8 +54,116 @@ function loadMesh(objName, func)
             func(child);
           }
         });
-
     });
+}
+
+function loadFlags()
+{
+    var flagMaterial = new THREE.ShaderMaterial({
+        vertexColors: THREE.VertexColors,
+        uniforms: {
+          time: { type: "f", value : 0.0 },
+          gradient: { type: "t", value: THREE.ImageUtils.loadTexture("./images/gradient_floor.png")}
+        },
+        vertexShader: require("./shaders/flag.vert.glsl"),
+        fragmentShader: require("./shaders/flag.frag.glsl")
+    });
+
+    flagMaterial.side = THREE.DoubleSide;
+
+    loadMesh('flag', function(mesh) {
+        mesh.material = flagMaterial;
+
+        for(var f = 0; f < 5; f++)
+        {
+            var radius = Math.random() * 30 + 10;
+            var angle = Math.random() * Math.PI * 2;
+            var flagPosition = new THREE.Vector3(Math.cos(angle) * radius, 0.0, Math.sin(angle) * radius)
+
+            var flag = mesh.clone();
+            flag.position.copy(flagPosition);
+            flag.rotation.copy(new THREE.Euler(Math.random() * .2 - .1, Math.random() * Math.PI, Math.random() * .2 - .1));
+            Engine.scene.add(flag);
+        }
+    });
+
+    var cinematicElement = {
+        time : 0.0,
+        material : flagMaterial
+    }
+
+    return cinematicElement;
+}
+
+function loadAndDistributeWeapons()
+{
+    var weaponMaterial = new THREE.ShaderMaterial({
+        vertexColors: THREE.VertexColors,
+        uniforms: {
+          time: { type: "f", value : 0.0 },
+          gradient: { type: "t", value: THREE.ImageUtils.loadTexture("./images/gradient_floor.png")}
+        },
+        vertexShader: require("./shaders/weapons.vert.glsl"),
+        fragmentShader: require("./shaders/weapons.frag.glsl")
+    });
+
+    var weaponNames = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14','15','16'];
+    var originalWeapons = [];
+
+    var loadedWeapons = 0;
+
+    for(var w = 0; w < weaponNames.length; w++)
+    {
+        loadMesh('weapons/' + weaponNames[w], 
+            function(mesh) {
+                originalWeapons.push(mesh);
+                mesh.material = weaponMaterial;
+
+                loadedWeapons++;
+
+                if(loadedWeapons == weaponNames.length)
+                {
+                    var clusters = 10;
+                    var weaponsPerCluster = 10;
+
+                    // Its a pity that I don't have much time, because these weapons could really use some blob shadows...
+                    for(var c = 0; c < clusters; c++)
+                    {
+                        var radius = Math.random() * 10 + 18;
+                        var angle = Math.random() * Math.PI * 2;
+                        var clusterCenter = new THREE.Vector3(Math.cos(angle) * radius, 0.0, Math.sin(angle) * radius)
+
+                        for(var i = 0; i < weaponsPerCluster; i++)
+                        {
+                            var randomWeaponIndex = Math.floor(Math.random() * originalWeapons.length);
+                            var weapon = originalWeapons[randomWeaponIndex].clone();
+
+                            var position = clusterCenter.clone().add(randomPoint(8.0));
+                            position.y = Math.random() * 2 + 4;
+
+                            var rotation = new THREE.Euler((Math.random() * 2.0 - 1.0) * .35,(Math.random() * 2.0 - 1.0) * .35, Math.PI + (Math.random() * 2.0 - 1.0) * .05);
+
+                            var s = Math.random() * .5 + 1.5;
+                            var scale = new THREE.Vector3(s,s,s);
+
+                            weapon.position.copy(position);
+                            weapon.rotation.copy(rotation);
+                            weapon.scale.copy(scale);
+
+                            Engine.scene.add(weapon);
+                        }
+                    }
+                }
+            });
+
+    }
+
+    var cinematicElement = {
+        time : 0.0,
+        material : weaponMaterial
+    }
+
+    return cinematicElement;
 }
 
 function loadBackground()
@@ -607,7 +715,6 @@ function loadWings()
         wing2.matrixWorldNeedsUpdate = true;
     });
 
-
     var angelMaterial = new THREE.ShaderMaterial({
         vertexColors: THREE.VertexColors,
         uniforms: {
@@ -743,6 +850,8 @@ function onLoad(framework)
 
     LoadCinematicElement(loadWings);
     LoadCinematicElement(loadBackground);
+    LoadCinematicElement(loadAndDistributeWeapons);
+    LoadCinematicElement(loadFlags);
     // loadWingConstructionCurves();
 
     // edit params and listen to changes like this

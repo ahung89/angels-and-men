@@ -22,7 +22,7 @@ void main()
 
 
 	float darkDomain = n.x + n.y + noiseUV.x - noiseUV.y + sin(time + (noiseUV.x + noiseUV.y) * .25); 
-	float dark = smoothstep(edge, edge + 1.0, darkDomain);
+	float dark = smoothstep(edge, edge + 1.5, darkDomain);
 
 	vec4 fire = texture2D(gradient, vec2(dark));
 
