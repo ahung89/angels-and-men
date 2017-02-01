@@ -889,12 +889,21 @@ function loadWings()
         mesh.material = haloMaterial;
         haloContainer.add(mesh);
 
-        var geometry = new THREE.PlaneGeometry( 1, 1, 1 );
-        var plane = new THREE.Mesh( geometry, energyMaterial );
-        plane.frustumCulled = false;
-        haloContainer.add( plane );
 
-        // TODO: Lookat camera
+        var flare = new THREE.Geometry();
+        flare.vertices.push(new THREE.Vector3(0,0,0));
+        flare.vertices.push(new THREE.Vector3(0,0,0));
+
+       
+        var pMaterial = new THREE.PointsMaterial( { color: 0x554422, map :THREE.ImageUtils.loadTexture("./images/particle.png")} )
+        pMaterial.transparent = true;
+        pMaterial.side = THREE.DoubleSide;
+        pMaterial.size = 3;
+        
+        makeMaterialAdditive(pMaterial);
+        
+        var points = new THREE.Points( flare, pMaterial );
+        haloContainer.add( points );
 
         cinematicElements.push({
         });
