@@ -583,7 +583,7 @@ function makeMaterialAdditive(material)
 function loadParticles()
 {  
     // We're not in mobile, and we hate performance! :D
-    var count = 700;
+    var count = 1000;
 
     var particles = new THREE.Geometry();
 
@@ -603,17 +603,14 @@ function loadParticles()
     var points = new THREE.Points( particles, pMaterial );
     points.onBeforeRender = function()
     {
-        // console.log("test");
-
+        // Just snowfall particles here
         for(var p = 0; p < count; p++)
         {
             var vertex = particles.vertices[p];
 
-
             vertex.y -= .1 * Engine.deltaTime;
             vertex.x += Math.cos(Engine.time + vertex.z) * Engine.deltaTime * .2;
             vertex.z += Math.sin(Engine.time + vertex.x) * Engine.deltaTime * .2;
-
 
             // Toroidal everything
             if(vertex.y < 0)
@@ -655,6 +652,7 @@ function loadWings()
     var curve = GetWingConstructionCurve();
     var transversalCurves = GetWingTransversalCurves();
 
+    var feathers = []; 
     var container = new THREE.Object3D();
     container.position.set(0,.9,0);
     Engine.scene.add(container);
@@ -663,7 +661,6 @@ function loadWings()
     loadMesh('wing_start', function(mesh) {
         mesh.material = featherMaterial;
 
-        var feathers = [];
         var feathersToAdd = 75;
 
         for(var i = 0; i < feathersToAdd; i++)
@@ -671,7 +668,6 @@ function loadWings()
             var x = i / feathersToAdd;
 
             var feather = mesh.clone();
-            feather.userData = { t : x };
             feathers.push(feather);
 
             var position = evaluateCurveLoft(transversalCurves, x, 0 + Math.random() * .005);
@@ -698,7 +694,6 @@ function loadWings()
     loadMesh('feather', function(mesh) {
         mesh.material = featherMaterial;
 
-        var feathers = [];
         var feathersToAdd = 75;
 
         // First, main feathers
@@ -707,7 +702,6 @@ function loadWings()
             var x = THREE.Math.clamp(i / feathersToAdd, 0, 1);
 
             var feather = mesh.clone();
-            // feather.userData = { t : x };
             feathers.push(feather);
 
             var position = evaluateCurveLoft(transversalCurves, x, .05 + Math.random() * .02);
@@ -730,8 +724,14 @@ function loadWings()
 
             feather.matrixWorldNeedsUpdate = true;
 
+            // feather.userData = {
+            //     originalMatrix : feather.matrix
+            // }
+
             container.add(feather);
         }
+
+        feathersToAdd = 100;
 
         // Secondary feathers
         for(var i = 0; i < feathersToAdd; i++)
@@ -742,7 +742,7 @@ function loadWings()
             feather.userData = { t : x };
             feathers.push(feather);
 
-            var position = evaluateCurveLoft(transversalCurves, x, .05 + x * .1 + Math.random() * .05);
+            var position = evaluateCurveLoft(transversalCurves, x, .05 + x * .05 + Math.random() * .05);
             position.add(randomPoint(.02));
 
             var target = evaluateCurveLoft(transversalCurves, x, .7)
@@ -831,7 +831,6 @@ function loadWings()
         });
     });
 
-
     loadMesh('angel_sword', function(mesh) {
         mesh.material = angelMaterial;
         Engine.scene.add(mesh);
@@ -840,7 +839,6 @@ function loadWings()
 
         });
     });
-
 
     var energyTexture = THREE.ImageUtils.loadTexture("./images/energy.png")
     energyTexture.wrapS = energyTexture.wrapT = THREE.RepeatWrapping;
@@ -913,7 +911,20 @@ function loadWings()
 
     var cinematicElement = {
         time : 0.0,
-        materials : [featherMaterial, energyMaterial, haloMaterial, angelMaterial]
+        materials : [featherMaterial, energyMaterial, haloMaterial, angelMaterial],
+        update : function() { 
+
+            for(var f = 0; f < feathers.length; f++)
+            {
+                // Some feather noise
+                var feather = feathers[f];
+
+                // Note: this is not perfect, as slight deviations in time will make the feathers break... dirty hack, sorry!
+                feather.rotateY(Math.sin(Engine.time + feather.position.y * 6.0 + feather.position.x * 4.0) * Engine.deltaTime * .1);
+                feather.rotateX(Math.cos(Engine.time + feather.position.y * 6.0 + feather.position.z * 4.0) * Engine.deltaTime * .1);
+            }
+
+        }
     }
 
     return cinematicElement;
@@ -959,13 +970,9 @@ function onLoad(framework)
     LoadCinematicElement(loadAndDistributeWeapons);
     LoadCinematicElement(loadFlags);
     LoadCinematicElement(loadParticles);
-    // loadWingConstructionCurves();
 
-    // edit params and listen to changes like this
-    // more information here: https://workshop.chromeexperiments.com/examples/gui/#1--Basic-Usage
-    // gui.add(camera, 'fov', 0, 180).onChange(function(newVal) {
-    //     camera.updateProjectionMatrix();
-    // });
+    // Uncomment this line if you want to see the surface patch!
+    // loadWingConstructionCurves();
 
     Engine.initialized = true;
 }
@@ -981,6 +988,11 @@ function onUpdate(framework)
         Engine.time += deltaTime;
         Engine.cameraTime += deltaTime;
         Engine.deltaTime = deltaTime;
+        for(var c = 0; c < Engine.cinematicElements.length; c++)
+        {
+            if(Engine.cinematicElements[c].update != null)
+                Engine.cinematicElements[c].update();
+        }
 
         // Update materials code
         for (var i = 0; i < Engine.materials.length; i++)

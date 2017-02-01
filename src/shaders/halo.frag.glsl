@@ -8,5 +8,5 @@ void main()
 {
 	float influence = pow(abs(vUv.x - .5) / .5, 4.0);
 	vec4 color = texture2D(sphereLit, (normalize(vNormal).xy * .5 + vec2(.5)));
-	gl_FragColor = color * (1.0 + influence * .5) + vec4(influence);
+	gl_FragColor = color + vec4(influence * influence);
 }

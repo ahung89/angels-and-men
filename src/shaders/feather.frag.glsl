@@ -18,10 +18,10 @@ void main()
 	noiseUV.y *= .5;
 
 	// The size of the edge, now run by time to test
-	float edge = mix(3.0, 20.0, sin(time * .2 + .3) * .5 + .5);
+	float edge = 10.0;//mix(3.0, 20.0, sin(time * .2 + .3) * .5 + .5);
 
 
-	float darkDomain = n.x + n.y + noiseUV.x - noiseUV.y + sin(time + (noiseUV.x + noiseUV.y) * .25); 
+	float darkDomain = n.x + n.y + noiseUV.x - noiseUV.y + sin(time + (noiseUV.x + noiseUV.y) * 4.15); 
 	float dark = smoothstep(edge, edge + 1.5, darkDomain);
 
 	vec4 fire = texture2D(gradient, vec2(dark));
