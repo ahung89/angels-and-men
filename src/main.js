@@ -941,11 +941,15 @@ function loadWings()
             containerRight.add(feather);
         }
 
-
         containerRight.rotateX(Math.PI * -.23);
         containerRight.rotateY(Math.PI);
         containerRight.rotateZ(Math.PI * -.6);
         containerRight.position.set(.1,3.5,2);
+
+        container.updateMatrixWorld(true);
+        containerRight.updateMatrixWorld(true);
+
+        Engine.initialized = true;
     });
 
     var angelMaterial = new THREE.ShaderMaterial({
@@ -1045,19 +1049,43 @@ function loadWings()
 
     Engine.scene.add(haloContainer);
 
+    var firstTime = true;
+
     var cinematicElement = {
         time : 0.0,
         materials : [featherMaterial, energyMaterial, haloMaterial, angelMaterial],
-        update : function() { 
+        update : function() {
 
-            for(var f = 0; f < feathers.length; f++)
+            if(Engine.initialized)
             {
-                // Some feather noise
-                var feather = feathers[f];
+                if(firstTime && feathers.length > 300)
+                {
+                    firstTime = false;
 
-                // Note: this is not perfect, as slight deviations in time will make the feathers break... dirty hack, sorry!
-                feather.rotateY(Math.sin(Engine.time + feather.position.y * 6.0 + feather.position.x * 4.0) * Engine.deltaTime * .1);
-                feather.rotateX(Math.cos(Engine.time + feather.position.y * 6.0 + feather.position.z * 4.0) * Engine.deltaTime * .1);
+                    for(var f = 0; f < feathers.length; f++)
+                    {
+                        var feather = feathers[f];
+                        feather.updateMatrix();
+                        feather.userData = { originalMatrix: feather.matrix.clone() };
+                    }   
+                }
+
+                for(var f = 0; f < feathers.length; f++)
+                {
+                    // Some feather noise
+                    var feather = feathers[f];
+
+                    feather.position.set(0,0,0);
+                    feather.rotation.set(0,0,0);
+                    feather.scale.set(1,1,1);
+
+                    // I hate you, threejs
+                    feather.updateMatrix();
+                    feather.applyMatrix(feather.userData.originalMatrix);
+                    
+                    feather.rotateY(Math.sin(Engine.time + feather.position.y * 6.0 + feather.position.x * 4.0) * .15);
+                    feather.rotateX(Math.cos(Engine.time + feather.position.y * 6.0 + feather.position.z * 4.0) * .15);
+                }
             }
 
         }
@@ -1109,8 +1137,6 @@ function onLoad(framework)
 
     // Uncomment this line if you want to see the surface patch!
     // loadWingConstructionCurves();
-
-    Engine.initialized = true;
 }
 
 // called on frame updates
