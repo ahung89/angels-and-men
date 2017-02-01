@@ -511,8 +511,15 @@ function accumulateParams(params, index)
     return r;
 }
 
+function mirrorCurveLoft(x, mirror)
+{
+    if(mirror)
+        x.x *= -1;
+    return x;
+}
+
 // Essentially a Coons Patch
-function evaluateCurveLoft(transversalCurves, u, v)
+function evaluateCurveLoft(transversalCurves, u, v, mirror = false)
 {
     u = THREE.Math.clamp(u, 0, 1);
     v = THREE.Math.clamp(v, 0, 1);
@@ -532,7 +539,9 @@ function evaluateCurveLoft(transversalCurves, u, v)
     if(endIndex > 0 && index > 0)
     {
         if(index >= transversalCurves.length)
-            return transversalCurves[transversalCurves.length - 1].getPoint(v);
+        {
+            return mirrorCurveLoft(transversalCurves[transversalCurves.length - 1].getPoint(v), mirror);
+        }
 
         // Interpolating transversal curves
         var prevPoint = transversalCurves[index - 1].getPoint(v);
@@ -561,10 +570,10 @@ function evaluateCurveLoft(transversalCurves, u, v)
         B.negate();
         Lv.add(B);
 
-        return Lv;
+        return mirrorCurveLoft(Lv, mirror);
     }
 
-    return transversalCurves[0].getPoint(v);
+    return mirrorCurveLoft(transversalCurves[0].getPoint(v), mirror);
 }
 
 function makeMaterialAdditive(material)
@@ -654,8 +663,10 @@ function loadWings()
 
     var feathers = []; 
     var container = new THREE.Object3D();
+    var containerRight = new THREE.Object3D();
     container.position.set(0,.9,0);
     Engine.scene.add(container);
+    Engine.scene.add(containerRight);
 
     // Feather roots 
     loadMesh('wing_start', function(mesh) {
@@ -687,6 +698,33 @@ function loadWings()
             feather.matrixWorldNeedsUpdate = true;
 
             container.add(feather);
+        }
+
+
+        for(var i = 0; i < feathersToAdd; i++)
+        {
+            var x = i / feathersToAdd;
+
+            var feather = mesh.clone();
+            feathers.push(feather);
+
+            var position = evaluateCurveLoft(transversalCurves, x, 0 + Math.random() * .005, true);
+            position.add(randomPoint(.02));
+
+            var target = evaluateCurveLoft(transversalCurves, x, .2, true)
+            target.add(randomPoint(.02));
+
+            var scale = new THREE.Vector3( 2, 2, 1 );
+            scale.add(randomPoint(.05));
+
+            feather.position.copy(position);
+            feather.scale.copy(scale);
+            feather.lookAt(target);
+            feather.rotateY(3.14 * -.5);    
+
+            feather.matrixWorldNeedsUpdate = true;
+
+            containerRight.add(feather);
         }
     });
 
@@ -801,15 +839,113 @@ function loadWings()
         container.rotateZ(Math.PI * .65);
         container.position.set(.1,3.5,2);
 
-        // Lazy clone for now, later I'll create a true secondary wing
-        var wing2 = container.clone(true);
-        wing2.position.set(.1,3.5,2);
-        wing2.rotateOnAxis(new THREE.Vector3(0,0,1), Math.PI * -.35);
-        wing2.scale.set(1,-1,1);
+        // -------------------------------------
+        // RIGHT WING!! This can be optimized/fixed later, but time runs out!
+        // First, main feathers
+        for(var i = 0; i < feathersToAdd; i++)
+        {
+            var x = THREE.Math.clamp(i / feathersToAdd, 0, 1);
 
-        // wing2.position.set(-5, 0, -5);
-        Engine.scene.add(wing2);
-        wing2.matrixWorldNeedsUpdate = true;
+            var feather = mesh.clone();
+            feathers.push(feather);
+
+            var position = evaluateCurveLoft(transversalCurves, x, .05 + Math.random() * .02, true);
+            position.y -= .1;
+            position.add(randomPoint(.02));
+
+            var target = evaluateCurveLoft(transversalCurves, x, .5, true)
+            target.add(randomPoint(.02));
+
+            var scale = new THREE.Vector3( .45 + (x * .25), 2, 1 );
+            scale.add(randomPoint(.05));
+            scale.multiplyScalar(1.5);
+
+            feather.position.copy(position);
+            feather.scale.copy(scale);
+            feather.lookAt(target);
+            feather.rotateY(3.14 * -.5);  
+            feather.rotateX(.15 + Math.random() * .1);  
+            feather.rotateZ(.2 + Math.random() * .05);
+
+            feather.matrixWorldNeedsUpdate = true;
+
+            // feather.userData = {
+            //     originalMatrix : feather.matrix
+            // }
+
+            containerRight.add(feather);
+        }
+
+        feathersToAdd = 100;
+
+        // Secondary feathers
+        for(var i = 0; i < feathersToAdd; i++)
+        {
+            var x = Math.sqrt(THREE.Math.clamp(i / feathersToAdd, 0, 1));
+
+            var feather = mesh.clone();
+            feather.userData = { t : x };
+            feathers.push(feather);
+
+            var position = evaluateCurveLoft(transversalCurves, x, .05 + x * .05 + Math.random() * .05, true);
+            position.add(randomPoint(.02));
+
+            var target = evaluateCurveLoft(transversalCurves, x, .7, true)
+            target.add(randomPoint(.02));
+
+            var scale = new THREE.Vector3( .65 + x * Math.random() * 1.5, 2, 2 );
+            scale.add(randomPoint(.05));
+            scale.multiplyScalar(1.5);
+
+            feather.position.copy(position);
+            feather.scale.copy(scale);
+            feather.lookAt(target);
+            feather.rotateY(3.14 * -.5);  
+            feather.rotateX(.3 + Math.random() * .1);  
+            feather.rotateZ(.2 + Math.random() * .05);
+            feather.matrixWorldNeedsUpdate = true;
+
+            containerRight.add(feather);
+        }
+        
+        feathersToAdd = 100;
+
+        // Third row of feathers, biggest
+        for(var i = 0; i < feathersToAdd; i++)
+        {
+            // We want more on the end
+            var x = Math.sqrt(i / feathersToAdd);
+
+            var feather = mesh.clone();
+            feather.userData = { t : x };
+            feathers.push(feather);
+
+            var position = evaluateCurveLoft(transversalCurves, x, .3 + Math.random() * .05, true);
+            position.add(randomPoint(.02));
+
+            var target = evaluateCurveLoft(transversalCurves, x, .9, true)
+            target.add(randomPoint(.02));
+
+            var scale = new THREE.Vector3( .5 + x * Math.random(), 2, 1.25 + Math.random() );
+            scale.add(randomPoint(.05));
+            scale.multiplyScalar(1.5);
+
+            feather.position.copy(position);
+            feather.scale.copy(scale);
+            feather.lookAt(target);
+            feather.rotateY(3.14 * -.5);  
+            feather.rotateX(.15 + Math.random() * .1);  
+            feather.rotateZ(.1 + Math.random() * .05);
+            feather.matrixWorldNeedsUpdate = true;
+
+            containerRight.add(feather);
+        }
+
+
+        containerRight.rotateX(Math.PI * -.23);
+        containerRight.rotateY(Math.PI);
+        containerRight.rotateZ(Math.PI * -.6);
+        containerRight.position.set(.1,3.5,2);
     });
 
     var angelMaterial = new THREE.ShaderMaterial({
